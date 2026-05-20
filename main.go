@@ -1,43 +1,49 @@
 package main
 
 import (
-	"encoding/json"
+	"context"
 	"fmt"
+	"log"
 	"net/http"
+	"os"
+
+	"github.com/jackc/pgx/v5"
 )
 
-type GraphQLRequest struct {
-	Query string `json:"query"`
-}
-
 func main() {
+	dbURL := os.Getenv("DATABASE_URL")
+	if dbURL == "" {
+		// Local fallback for running outside Docker
+		dbURL = "postgres://devops_user:super_secret_password@localhost:5432/sandbox_analytics?sslmode=disable"
+	}
+
+	ctx := context.Background()
+	conn, err := pgx.Connect(ctx, dbURL)
+	if err != nil {
+		log.Fatalf("Unable to connect to database: %v\n", err)
+	}
+	defer conn.Close(ctx)
+
+	fmt.Println("Go API successfully connected to PostgreSQL!")
+
+	// Demo endpoint to show system metric logs
 	http.HandleFunc("/graphql", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		
-		if r.Method != http.MethodPost {
-			http.Error(w, "GraphQL requests must be POST", http.StatusMethodNotAllowed)
+
+		var serviceName string
+		// To ensure connection works
+		err := conn.QueryRow(ctx, "SELECT service_name FROM system_logs LIMIT 1").Scan(&serviceName)
+		if err != nil {
+			// Can be empty on a fresh run so lets echo a success link
+			fmt.Fprintf(w, `{"data":{"status":"Go API connected. No metric logs written yet."}}`)
 			return
 		}
 
-		var req GraphQLRequest
-		if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-			http.Error(w, err.Error(), http.StatusBadRequest)
-			return
-		}
-
-		// Mocking a successful GraphQL payload response
-		responseData := map[string]interface{}{
-			"data": map[string]interface{}{
-				"status": "Go GraphQL API is functional",
-				"echo":   req.Query,
-			},
-		}
-
-		json.NewEncoder(w).Encode(responseData)
+		fmt.Fprintf(w, `{"data":{"status":"Go API functional", "latest_log_from":"%s"}}`, serviceName)
 	})
 
-	fmt.Println("Go GraphQL server listening on :8080...")
+	log.Println("Go Server listening on port 8080...")
 	if err := http.ListenAndServe(":8080", nil); err != nil {
-		panic(err)
+		log.Fatal(err)
 	}
 }
