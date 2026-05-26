@@ -1,0 +1,39 @@
+name: API Go CI pipeline
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  validate-go:
+    name: Format, vet, lint, test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Go runtime
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: 'go.mod'
+          cache: true
+
+      - name: Verify formatting
+        run: |
+          if [ -n "$(gofmt -l .)" ]; then
+            echo "Following files are poorly formatted:"
+            gofmt -l .
+            exit 1
+          fi
+
+      - name: Run Go Vet
+        run: go vet ./...
+
+      - name: Run Golangci-Lint
+        run: go run github.com/golangci/golangci-lint/cmd/golangci-lint@latest run ./...
+
+      - name: Run tests
+        run: go test -v -race -covermode=atomic ./...
