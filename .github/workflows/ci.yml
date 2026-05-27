@@ -6,6 +6,13 @@ on:
   pull_request:
     branches: [ main ]
 
+concurrency:
+  group: api-go-ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
 jobs:
   validate-go:
     name: Format, vet, lint, test
@@ -23,7 +30,8 @@ jobs:
 
       - name: Verify formatting
         run: |
-          if [ -n "$(gofmt -l .)" ]; then
+          unformatted=$(gofmt -l .)
+          if [ -n "$unformatted" ]; then
             echo "Following files are poorly formatted:"
             gofmt -l .
             exit 1
