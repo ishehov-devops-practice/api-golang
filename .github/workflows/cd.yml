@@ -68,10 +68,8 @@ jobs:
         run: |
           TARGET_TAG="sha-${{ github.event.workflow_run.head_sha }}"
           
-          # Adjust folder name if your directory is named api-golang
           cd devops-infra/kubernetes/platform/api-golang
           
-          # Safely rewrites the target image tag inside your Go deployment manifest
           sed -i "s|image: ghcr.io/ishehov-devops-practice/api-golang:.*|image: ghcr.io/ishehov-devops-practice/api-golang:${TARGET_TAG}|g" deployment.yml
 
       - name: Commit and Push Changes to Infra Repo
